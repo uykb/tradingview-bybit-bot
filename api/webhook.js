@@ -1,6 +1,6 @@
 // api/webhook.js
 const { validateSignal } = require('../lib/validator');
-const { executeTrade } = require('../lib/bybit');
+const exchanges = require('../lib/exchanges');
 
 module.exports = async (req, res) => {
   // 只接受POST请求
@@ -17,13 +17,24 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: validationResult.error });
     }
     
+    // 确定使用哪个交易所
+    const exchange = signal.exchange?.toLowerCase() || process.env.DEFAULT_EXCHANGE?.toLowerCase() || 'bybit';
+    
+    // 检查是否支持该交易所
+    if (!exchanges[exchange]) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `不支持的交易所: ${exchange}. 支持的交易所: ${Object.keys(exchanges).join(', ')}` 
+      });
+    }
+    
     // 执行交易
-    const tradeResult = await executeTrade(signal);
+    const tradeResult = await exchanges[exchange].executeTrade(signal);
     
     // 返回结果
     return res.status(200).json({
       success: true,
-      message: '交易执行成功',
+      message: `${exchange.toUpperCase()} 交易执行成功`,
       data: tradeResult
     });
   } catch (error) {
